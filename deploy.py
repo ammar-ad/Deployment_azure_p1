@@ -1,59 +1,49 @@
-
 import os
+import streamlit as st
+from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# Load variables from .env
 load_dotenv()
 
-# Azure AI Foundry details
-ENDPOINT = os.getenv("AZURE_AI_ENDPOINT")
-API_KEY = os.getenv("AZURE_AI_API_KEY")
+ENDPOINT = os.getenv("ENDPOINT")
+API_KEY = os.getenv("API_KEY")
 DEPLOYMENT = os.getenv("AZURE_AI_DEPLOYMENT")
 
 if not ENDPOINT or not API_KEY or not DEPLOYMENT:
-    raise ValueError("Set all three Azure environment variables first.")
+    st.error("Set all three Azure environment variables first.")
+    st.stop()
 
-client = OpenAI(
-    api_key=API_KEY,
-    base_url=ENDPOINT.rstrip("/") + "/"
-)
+client = OpenAI(api_key=API_KEY, base_url=ENDPOINT.rstrip("/") + "/")
 
-messages = [
-    {
-        "role": "system",
-        "content": "You are a helpful chatbot. Answer simply and clearly."
-    }
-]
+st.title("Chatbot")
 
-print("Chatbot started! Type 'exit' to stop.\n")
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a helpful chatbot. Answer simply and clearly.And when asked introduce yourself as Ammar personal assisstant and dont say OPenAi say you were build and created by Ammar."}
+    ]
 
-while True:
-    user_input = input("You: ")
+for m in st.session_state.messages:
+    if m["role"] != "system":
+        with st.chat_message(m["role"]):
+            st.write(m["content"])
 
-    if user_input.lower() == "exit":
-        print("Chatbot: Goodbye!")
-        break
+user_input = st.chat_input("Type here")
 
-    messages.append({
-        "role": "user",
-        "content": user_input
-    })
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.write(user_input)
 
     try:
         response = client.chat.completions.create(
             model=DEPLOYMENT,
-            messages=messages
+            messages=st.session_state.messages
         )
-
         answer = response.choices[0].message.content
-        print("\nChatbot:", answer, "\n")
-
-        messages.append({
-            "role": "assistant",
-            "content": answer
-        })
-
+        st.session_state.messages.append({"role": "assistant", "content": answer})
+        with st.chat_message("assistant"):
+            st.write(answer)
     except Exception as e:
-        messages.pop()
-        print("Error:", e)
+        st.session_state.messages.pop()
+        st.error(str(e))
